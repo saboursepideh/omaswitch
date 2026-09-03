@@ -32,6 +32,7 @@ Item {
   property bool cycleMode: false
   property string filterText: ""
   property int selectedIndex: 0
+  property bool previewReady: false
 
   // Raw toplevels (live objects from the Hyprland singleton) + filtered rows.
   property var allWindows: []
@@ -47,7 +48,7 @@ Item {
   // rebuildRows() gets to clamp selectedIndex.
   readonly property var selectedToplevel: selectedIndex >= 0 && selectedIndex < rows.length ? rows[selectedIndex] : null
   readonly property bool previewWanted: root.opened && root.selectedToplevel !== null && !!root.selectedToplevel.wayland
-  readonly property bool previewActive: root.previewWanted && previewView.hasContent
+  readonly property bool previewActive: root.previewWanted && (root.previewReady || previewView.hasContent)
 
   readonly property int cardWidth: Math.min(root.previewActive ? Style.space(1080) : Style.space(760), panel.width - Style.gapsOut * 2)
   readonly property int desiredListHeight: Math.max(root.rowHeight, rows.length * root.rowHeight)
@@ -125,6 +126,7 @@ Item {
     root.cycleMode = payload.mode === "cycle"
     root.filterText = ""
     root.selectedIndex = 0
+    root.previewReady = false
     root.refresh()
     if (root.cycleMode && root.rows.length > 1 && Model.isCurrent(root.rows[0]))
       root.selectedIndex = direction < 0 ? root.rows.length - 1 : 1
@@ -134,12 +136,14 @@ Item {
   function close() {
     root.opened = false
     root.cycleMode = false
+    root.previewReady = false
   }
 
   // User-initiated dismissal also drops the host's openPanelIds entry.
   function dismiss() {
     root.opened = false
     root.cycleMode = false
+    root.previewReady = false
     if (root.shell && typeof root.shell.hide === "function")
       root.shell.hide((root.manifest && root.manifest.id) || "piyush.omaswitch")
   }
@@ -166,6 +170,16 @@ Item {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore
+
+    LazyLoader {
+      active: root.opened
+
+      ShortcutInhibitor {
+        window: panel
+        enabled: true
+        onCancelled: root.dismiss()
+      }
+    }
 
     Rectangle {
       anchors.fill: parent
@@ -291,6 +305,9 @@ Item {
             live: root.previewWanted
             paintCursor: false
             constraintSize: Qt.size(root.previewConstraintWidth, root.previewConstraintHeight)
+            onHasContentChanged: {
+              if (hasContent) root.previewReady = true
+            }
           }
         }
       }
@@ -316,10 +333,15 @@ Item {
         } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Down || event.key === Qt.Key_Right) {
           root.select((event.modifiers & Qt.ShiftModifier) ? -1 : 1)
           event.accepted = true
+        } else if (root.filterText && event.key === Qt.Key_Backspace &&
+                   !(event.modifiers & Qt.AltModifier)) {
+          root.setFilter(Util.editedFilter(event, root.filterText))
+          event.accepted = true
         } else if (Util.editsFilter(event, root.filterText)) {
           root.setFilter(Util.editedFilter(event, root.filterText))
           event.accepted = true
-        } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127 && (event.modifiers === Qt.NoModifier || event.modifiers === Qt.ShiftModifier)) {
+        } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127 &&
+                   (event.modifiers & ~(Qt.ShiftModifier | Qt.MetaModifier)) === Qt.NoModifier) {
           root.setFilter(root.filterText + event.text)
           event.accepted = true
         }

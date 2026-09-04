@@ -413,8 +413,7 @@ Item {
       // Best-effort native Alt-Tab behavior. If the compositor delivers the
       // modifier release after granting this overlay focus, commit selection.
       Keys.onReleased: function(event) {
-        if (root.cycleMode && (event.key === Qt.Key_Alt || event.key === Qt.Key_Meta ||
-                              event.key === Qt.Key_Super_L || event.key === Qt.Key_Super_R)) {
+        if (root.cycleMode && (event.key === Qt.Key_Alt || event.key === Qt.Key_Meta)) {
           root.commitCycle()
           event.accepted = true
         }

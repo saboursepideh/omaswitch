@@ -67,6 +67,7 @@ hyprctl configerrors
 | `Alt+Shift+Tab` | Open the switcher and move backward |
 | `Tab`, `Down`, `Right` | Select the next window |
 | `Shift+Tab`, `Up`, `Left` | Select the previous window |
+| `` ` `` / `~` | Select the next / previous window (never entered in the filter) |
 | Type | Filter by title, application, or workspace |
 | `Backspace` / `Ctrl+Backspace` | Delete a character / word from the search |
 | `Ctrl+U` | Clear the search |
@@ -77,6 +78,12 @@ To open the searchable picker directly:
 
 ```bash
 omarchy-shell shell toggle piyush.omaswitch
+```
+
+To cycle only windows belonging to the currently focused application:
+
+```bash
+omarchy-shell shell summon piyush.omaswitch '{"mode":"cycle","direction":1,"scope":"current-app"}'
 ```
 
 ## Keep it current

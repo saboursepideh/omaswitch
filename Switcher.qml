@@ -31,6 +31,7 @@ Item {
   property bool opened: false
   property bool cycleMode: false
   property string filterText: ""
+  property string appScope: ""
   property int selectedIndex: 0
   property bool previewReady: false
 
@@ -77,7 +78,10 @@ Item {
   property string fontFamily: Style.font.menuFamily
 
   function rebuildRows() {
-    rows = Model.filteredWindows(allWindows, filterText)
+    var scoped = appScope === "current-app"
+      ? Model.sameAppWindows(allWindows, allWindows.find(Model.isCurrent))
+      : allWindows
+    rows = Model.filteredWindows(scoped, filterText)
     if (selectedIndex >= rows.length) selectedIndex = Math.max(0, rows.length - 1)
     if (selectedIndex < 0 && rows.length > 0) selectedIndex = 0
   }
@@ -86,6 +90,16 @@ Item {
     filterText = value
     selectedIndex = 0
     rebuildRows()
+  }
+
+  function isGraveCycleKey(event) {
+    return event.key === Qt.Key_QuoteLeft || event.key === Qt.Key_AsciiTilde ||
+      event.key === Qt.Key_Dead_Grave || event.key === Qt.Key_Dead_Tilde
+  }
+
+  function graveCycleDirection(event) {
+    return event.key === Qt.Key_AsciiTilde || event.key === Qt.Key_Dead_Tilde ||
+      (event.modifiers & Qt.ShiftModifier) ? -1 : 1
   }
 
   function refresh() {
@@ -125,6 +139,7 @@ Item {
     root.opened = true
     root.cycleMode = payload.mode === "cycle"
     root.filterText = ""
+    root.appScope = payload.scope === "current-app" ? "current-app" : ""
     root.selectedIndex = 0
     root.previewReady = false
     root.refresh()
@@ -136,6 +151,7 @@ Item {
   function close() {
     root.opened = false
     root.cycleMode = false
+    root.appScope = ""
     root.previewReady = false
   }
 
@@ -143,6 +159,7 @@ Item {
   function dismiss() {
     root.opened = false
     root.cycleMode = false
+    root.appScope = ""
     root.previewReady = false
     if (root.shell && typeof root.shell.hide === "function")
       root.shell.hide((root.manifest && root.manifest.id) || "piyush.omaswitch")
@@ -332,6 +349,10 @@ Item {
           event.accepted = true
         } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Down || event.key === Qt.Key_Right) {
           root.select((event.modifiers & Qt.ShiftModifier) ? -1 : 1)
+          event.accepted = true
+        } else if (root.isGraveCycleKey(event)) {
+          root.cycleMode = true
+          root.select(root.graveCycleDirection(event))
           event.accepted = true
         } else if (root.filterText && event.key === Qt.Key_Backspace &&
                    !(event.modifiers & Qt.AltModifier)) {

@@ -68,6 +68,14 @@ function filteredWindows(values, query) {
   })
 }
 
+function sameAppWindows(values, reference) {
+  var id = appId(reference).toLowerCase()
+  if (!id) return []
+  return values.filter(function(window) {
+    return appId(window).toLowerCase() === id
+  })
+}
+
 // Build the shell command that focuses a window AND moves to its workspace.
 // Native toplevel activate does not always switch the visible workspace, so
 // the switch is requested explicitly: prefer Omarchy's Lua dispatcher form
@@ -90,5 +98,6 @@ if (typeof module !== "undefined") module.exports = {
   isCurrent: isCurrent,
   sortedWindows: sortedWindows,
   filteredWindows: filteredWindows,
+  sameAppWindows: sameAppWindows,
   focusCommand: focusCommand
 }

@@ -193,20 +193,6 @@ Item {
     onPressed: root.open('{"mode":"cycle","direction":-1,"scope":"current-app"}')
   }
 
-  GlobalShortcut {
-    appid: "omaswitch"
-    name: "super-left"
-    description: "Commit OmaSwitch when left Super is released"
-    onReleased: if (root.opened && root.cycleMode) root.focusSelected()
-  }
-
-  GlobalShortcut {
-    appid: "omaswitch"
-    name: "super-right"
-    description: "Commit OmaSwitch when right Super is released"
-    onReleased: if (root.opened && root.cycleMode) root.focusSelected()
-  }
-
   // Keep the list fresh while open (windows open/close/rename).
   Connections {
     target: Hyprland

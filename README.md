@@ -89,13 +89,17 @@ keypress:
 ```lua
 o.bind("SUPER + TAB", "OmaSwitch", hl.dsp.global("omaswitch:next"))
 o.bind("SUPER + SHIFT + TAB", "OmaSwitch (reverse)", hl.dsp.global("omaswitch:previous"))
+o.bind("SUPER_L", nil, hl.dsp.global("omaswitch:super-left"))
+o.bind("SUPER_R", nil, hl.dsp.global("omaswitch:super-right"))
 o.bind("SUPER + GRAVE", "OmaSwitch current app", hl.dsp.global("omaswitch:current-next"))
 o.bind("SUPER + SHIFT + GRAVE", "OmaSwitch current app (reverse)", hl.dsp.global("omaswitch:current-previous"))
 ```
 
-The native targets handle the initial keypress only. Once the overlay has
-exclusive keyboard focus, its QML key handler handles continued cycling and
-modifier release.
+The native window targets handle the initial keypress. Once the overlay has
+exclusive keyboard focus, its QML key handler handles continued cycling. The
+bare Super targets retain their native press/release lifecycle and commit the
+highlighted window immediately when either Super key is released. They do
+nothing while OmaSwitch is closed.
 
 To cycle only windows belonging to the currently focused application:
 

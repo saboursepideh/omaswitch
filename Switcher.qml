@@ -165,6 +165,34 @@ Item {
       root.shell.hide((root.manifest && root.manifest.id) || "piyush.omaswitch")
   }
 
+  GlobalShortcut {
+    appid: "omaswitch"
+    name: "next"
+    description: "Open OmaSwitch and select the next recent window"
+    onPressed: root.open('{"mode":"cycle","direction":1}')
+  }
+
+  GlobalShortcut {
+    appid: "omaswitch"
+    name: "previous"
+    description: "Open OmaSwitch and select the previous recent window"
+    onPressed: root.open('{"mode":"cycle","direction":-1}')
+  }
+
+  GlobalShortcut {
+    appid: "omaswitch"
+    name: "current-next"
+    description: "Open OmaSwitch for the current application and select next"
+    onPressed: root.open('{"mode":"cycle","direction":1,"scope":"current-app"}')
+  }
+
+  GlobalShortcut {
+    appid: "omaswitch"
+    name: "current-previous"
+    description: "Open OmaSwitch for the current application and select previous"
+    onPressed: root.open('{"mode":"cycle","direction":-1,"scope":"current-app"}')
+  }
+
   // Keep the list fresh while open (windows open/close/rename).
   Connections {
     target: Hyprland

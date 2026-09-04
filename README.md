@@ -80,6 +80,23 @@ To open the searchable picker directly:
 omarchy-shell shell toggle piyush.omaswitch
 ```
 
+### Low-latency Hyprland Lua bindings
+
+OmaSwitch registers native global shortcut targets so Hyprland can open the
+already-loaded overlay without starting `omarchy-shell` and `qs` on every
+keypress:
+
+```lua
+o.bind("SUPER + TAB", "OmaSwitch", hl.dsp.global("omaswitch:next"))
+o.bind("SUPER + SHIFT + TAB", "OmaSwitch (reverse)", hl.dsp.global("omaswitch:previous"))
+o.bind("SUPER + GRAVE", "OmaSwitch current app", hl.dsp.global("omaswitch:current-next"))
+o.bind("SUPER + SHIFT + GRAVE", "OmaSwitch current app (reverse)", hl.dsp.global("omaswitch:current-previous"))
+```
+
+The native targets handle the initial keypress only. Once the overlay has
+exclusive keyboard focus, its QML key handler handles continued cycling and
+modifier release.
+
 To cycle only windows belonging to the currently focused application:
 
 ```bash

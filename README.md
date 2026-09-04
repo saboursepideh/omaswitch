@@ -55,25 +55,9 @@ closes a race where a very fast tap releases Super before the overlay receives
 keyboard focus:
 
 ```lua
-local omaswitch_armed = false
-
-local function summon_omaswitch(payload)
-	return function()
-		omaswitch_armed = true
-		hl.exec_cmd("omarchy-shell shell summon piyush.omaswitch " .. o.shell_quote(payload))
-	end
-end
-
-local function commit_omaswitch_on_super_release()
-	if not omaswitch_armed then return end
-	omaswitch_armed = false
-	hl.exec_cmd([[omarchy-shell omaswitch commit >/dev/null 2>&1 || omarchy-shell -q shell summon piyush.omaswitch '{"action":"commit"}']])
-end
-
-o.bind("SUPER + TAB", "OmaSwitch", summon_omaswitch([[{"mode":"cycle","direction":1}]]))
-o.bind("SUPER + SHIFT + TAB", "OmaSwitch (reverse)", summon_omaswitch([[{"mode":"cycle","direction":-1}]]))
-o.bind("SUPER_L", nil, commit_omaswitch_on_super_release, { release = true })
-o.bind("SUPER_R", nil, commit_omaswitch_on_super_release, { release = true })
+local omaswitch_commit = [[omarchy-shell omaswitch commit >/dev/null 2>&1 || omarchy-shell -q shell summon piyush.omaswitch '{"action":"commit"}']]
+o.bind("SUPER_L", nil, omaswitch_commit, { release = true })
+o.bind("SUPER_R", nil, omaswitch_commit, { release = true })
 ```
 
 Then reload Hyprland:

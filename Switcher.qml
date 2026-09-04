@@ -1,6 +1,5 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.Commons
@@ -35,7 +34,6 @@ Item {
   property string appScope: ""
   property int selectedIndex: 0
   property bool previewReady: false
-  property bool pendingCommit: false
 
   // Raw toplevels (live objects from the Hyprland singleton) + filtered rows.
   property var allWindows: []
@@ -126,29 +124,10 @@ Item {
     selectedIndex = (selectedIndex + delta + rows.length) % rows.length
   }
 
-  function commitCycle() {
-    if (!root.opened || !root.cycleMode) return false
-    root.focusSelected()
-    return true
-  }
-
-  function requestCommit() {
-    if (root.commitCycle()) return true
-    root.pendingCommit = true
-    pendingCommitTimer.restart()
-    return false
-  }
-
   function open(payloadJson) {
     var payload = ({})
     try { payload = JSON.parse(payloadJson || "{}") } catch (e) { payload = ({}) }
     var direction = Number(payload.direction) < 0 ? -1 : 1
-
-    if (payload.action === "commit") {
-      root.requestCommit()
-      root.dismiss()
-      return
-    }
 
     // Repeated Alt+Tab summons cycle instead of resetting or closing.
     if (root.opened && payload.mode === "cycle") {
@@ -166,20 +145,7 @@ Item {
     root.refresh()
     if (root.cycleMode && root.rows.length > 1 && Model.isCurrent(root.rows[0]))
       root.selectedIndex = direction < 0 ? root.rows.length - 1 : 1
-    if (root.pendingCommit) {
-      root.pendingCommit = false
-      pendingCommitTimer.stop()
-      Qt.callLater(function() { root.commitCycle() })
-      return
-    }
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
-  }
-
-  Timer {
-    id: pendingCommitTimer
-    interval: 500
-    repeat: false
-    onTriggered: root.pendingCommit = false
   }
 
   function close() {
@@ -209,14 +175,6 @@ Item {
           name === "workspace" || name === "movewindow" || name.indexOf("windowtitle") === 0) {
         root.refresh()
       }
-    }
-  }
-
-  IpcHandler {
-    target: "omaswitch"
-
-    function commit(): string {
-      return root.requestCommit() ? "ok" : "pending"
     }
   }
 
@@ -414,7 +372,7 @@ Item {
       // modifier release after granting this overlay focus, commit selection.
       Keys.onReleased: function(event) {
         if (root.cycleMode && (event.key === Qt.Key_Alt || event.key === Qt.Key_Meta)) {
-          root.commitCycle()
+          root.focusSelected()
           event.accepted = true
         }
       }

@@ -50,16 +50,6 @@ o.bind("ALT + TAB", "OmaSwitch", "omarchy-shell shell summon piyush.omaswitch '{
 o.bind("ALT + SHIFT + TAB", "OmaSwitch (reverse)", "omarchy-shell shell summon piyush.omaswitch '{\"mode\":\"cycle\",\"direction\":-1}'")
 ```
 
-For a Super-based binding, also catch compositor-side modifier release. This
-closes a race where a very fast tap releases Super before the overlay receives
-keyboard focus:
-
-```lua
-local omaswitch_commit = [[omarchy-shell omaswitch commit >/dev/null 2>&1 || omarchy-shell -q shell summon piyush.omaswitch '{"action":"commit"}']]
-o.bind("SUPER_L", nil, omaswitch_commit, { release = true })
-o.bind("SUPER_R", nil, omaswitch_commit, { release = true })
-```
-
 Then reload Hyprland:
 
 ```bash

@@ -4,7 +4,7 @@
 
 OmaSwitch puts your recently used windows in one fast, keyboard-first overlay. Cycle through them with `Alt+Tab`, type to find one by name, and see a live preview of the highlighted window before you switch.
 
-![OmaSwitch showing a live terminal preview](preview.png)
+![OmaSwitch with app icons, grouped windows, and a live demo terminal preview](preview.png)
 
 ## Why you will like it
 
@@ -20,15 +20,17 @@ OmaSwitch puts your recently used windows in one fast, keyboard-first overlay. C
 
 ### Pick the project window without leaving the keyboard
 
-Search or cycle through windows, then confirm with Enter (or release Alt when the compositor forwards the release event).
+Search by title, app, or workspace. Matching windows stay grouped with an app icon and updated window count, alongside the selected window's live preview.
 
-![OmaSwitch with a project terminal preview](screenshots/terminal-preview.png)
+![OmaSwitch filtering two demo project windows within the Foot app group](screenshots/terminal-preview.png)
 
-### Check a live `btop` preview before switching
+### Cycle within an app without leaving the full list
 
-The preview changes with the selected row, making similarly named windows easy to distinguish.
+Backtick and Shift+backtick cycle only within the highlighted app. Here Project Beta is selected in the Foot group while the other apps remain visible; Tab and arrows still navigate the full list.
 
-![OmaSwitch with a live btop preview](screenshots/btop-preview.png)
+![OmaSwitch with Project Beta selected while cycling within the Foot app group](screenshots/app-cycling.png)
+
+Screenshots show the current grouped UI with sample terminal output and are cropped to the dialog; the terminal commands shown are demonstration text, not executed project commands.
 
 ## Add it to Omarchy
 

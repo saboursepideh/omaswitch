@@ -32,14 +32,18 @@ Item {
   property bool cycleMode: false
   property string filterText: ""
   property string appScope: ""
+  property string scopeAppId: ""
   property int selectedIndex: 0
   property bool previewReady: false
 
   // Raw toplevels (live objects from the Hyprland singleton) + filtered rows.
   property var allWindows: []
   property var rows: []
+  property var groupHeaders: []
+  property int groupCount: 0
 
   readonly property int headerHeight: Math.max(Style.space(34), Style.font.title + Style.spacing.controlPaddingY * 2)
+  readonly property int groupHeaderHeight: Math.max(Style.space(30), Style.font.caption + Style.space(12))
   readonly property int rowHeight: Math.max(Style.space(48), Style.font.body + Style.font.caption + Style.spacing.rowPaddingX * 2)
   readonly property int contentMargin: Style.spacing.panelPadding
   readonly property int listGap: Style.space(4)
@@ -52,7 +56,7 @@ Item {
   readonly property bool previewActive: root.previewWanted && (root.previewReady || previewView.hasContent)
 
   readonly property int cardWidth: Math.min(root.previewActive ? Style.space(1080) : Style.space(760), panel.width - Style.gapsOut * 2)
-  readonly property int desiredListHeight: Math.max(root.rowHeight, rows.length * root.rowHeight)
+  readonly property int desiredListHeight: Math.max(root.rowHeight, rows.length * root.rowHeight + groupCount * root.groupHeaderHeight)
   readonly property int desiredCardHeight: root.contentMargin * 2 + root.headerHeight + root.listGap + root.desiredListHeight
   readonly property int cardHeight: Math.min(
     Math.max(root.previewActive ? Style.space(400) : 0, root.desiredCardHeight),
@@ -77,11 +81,32 @@ Item {
   readonly property int cornerRadius: Style.cornerRadius
   property string fontFamily: Style.font.menuFamily
 
-  function rebuildRows() {
+  function groupTitle(header) {
+    if (!header) return ""
+    var entry = header.appId ? DesktopEntries.heuristicLookup(header.appId) : null
+    var name = entry && entry.name ? entry.name : (header.appId || "Unknown application")
+    return name + " · " + header.count + (header.count === 1 ? " window" : " windows")
+  }
+
+  function groupIconSource(header) {
+    if (!header) return ""
+    var entry = header.appId ? DesktopEntries.heuristicLookup(header.appId) : null
+    var icon = String((entry && entry.icon) || header.appId || "application-x-executable")
+    if (icon.indexOf("file://") === 0 || icon.indexOf("image://") === 0) return icon
+    if (icon.charAt(0) === "/") return Util.fileUrl(icon)
+    return String(Quickshell.iconPath(icon, true)) || String(Quickshell.iconPath("application-x-executable", true))
+  }
+
+  function rebuildRows(preserveSelection) {
+    var selected = root.opened && preserveSelection !== false ? root.selectedToplevel : null
     var scoped = appScope === "current-app"
-      ? Model.sameAppWindows(allWindows, allWindows.find(Model.isCurrent))
+      ? Model.windowsForApp(allWindows, scopeAppId)
       : allWindows
-    rows = Model.filteredWindows(scoped, filterText)
+    var grouped = Model.groupedRows(Model.filteredWindows(scoped, filterText))
+    groupHeaders = grouped.headers
+    groupCount = grouped.groupCount
+    rows = grouped.windows
+    if (selected && rows.indexOf(selected) >= 0) selectedIndex = rows.indexOf(selected)
     if (selectedIndex >= rows.length) selectedIndex = Math.max(0, rows.length - 1)
     if (selectedIndex < 0 && rows.length > 0) selectedIndex = 0
   }
@@ -89,7 +114,7 @@ Item {
   function setFilter(value) {
     filterText = value
     selectedIndex = 0
-    rebuildRows()
+    rebuildRows(false)
   }
 
   function isGraveCycleKey(event) {
@@ -124,6 +149,15 @@ Item {
     selectedIndex = (selectedIndex + delta + rows.length) % rows.length
   }
 
+  function selectWithinApp(delta) {
+    selectedIndex = Model.nextAppIndex(rows, selectedIndex, delta)
+  }
+
+  function commitCycle() {
+    // A regular key release may already have committed or Escape dismissed.
+    if (root.opened && root.cycleMode) root.focusSelected()
+  }
+
   function open(payloadJson) {
     var payload = ({})
     try { payload = JSON.parse(payloadJson || "{}") } catch (e) { payload = ({}) }
@@ -132,19 +166,32 @@ Item {
     // Repeated Alt+Tab summons cycle instead of resetting or closing.
     if (root.opened && payload.mode === "cycle") {
       root.cycleMode = true
-      root.select(direction)
+      if (payload.scope === "current-app") root.selectWithinApp(direction)
+      else root.select(direction)
       return
     }
 
-    root.opened = true
+    // Capture the real active app before the exclusive overlay takes focus.
+    // Cached focusHistoryID values can identify an older, unrelated window.
+    var current = Hyprland.activeToplevel ||
+      Hyprland.toplevels.values.find(function(window) { return window.activated }) ||
+      Hyprland.toplevels.values.find(Model.isCurrent)
+    root.scopeAppId = Model.appId(current)
     root.cycleMode = payload.mode === "cycle"
     root.filterText = ""
     root.appScope = payload.scope === "current-app" ? "current-app" : ""
     root.selectedIndex = 0
     root.previewReady = false
     root.refresh()
-    if (root.cycleMode && root.rows.length > 1 && Model.isCurrent(root.rows[0]))
-      root.selectedIndex = direction < 0 ? root.rows.length - 1 : 1
+    // Keep quick-switch MRU behavior: the previous window may belong to a
+    // different group. Subsequent navigation follows the grouped visual order.
+    var cycleWindows = root.appScope === "current-app" ? root.rows : root.allWindows
+    var currentIndex = cycleWindows.indexOf(current)
+    if (root.cycleMode && cycleWindows.length > 1 && currentIndex >= 0) {
+      var nextWindow = cycleWindows[(currentIndex + direction + cycleWindows.length) % cycleWindows.length]
+      root.selectedIndex = root.rows.indexOf(nextWindow)
+    }
+    root.opened = true
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
 
@@ -152,6 +199,7 @@ Item {
     root.opened = false
     root.cycleMode = false
     root.appScope = ""
+    root.scopeAppId = ""
     root.previewReady = false
   }
 
@@ -160,6 +208,7 @@ Item {
     root.opened = false
     root.cycleMode = false
     root.appScope = ""
+    root.scopeAppId = ""
     root.previewReady = false
     if (root.shell && typeof root.shell.hide === "function")
       root.shell.hide((root.manifest && root.manifest.id) || "piyush.omaswitch")
@@ -191,6 +240,13 @@ Item {
     name: "current-previous"
     description: "Open OmaSwitch for the current application and select previous"
     onPressed: root.open('{"mode":"cycle","direction":-1,"scope":"current-app"}')
+  }
+
+  GlobalShortcut {
+    appid: "omaswitch"
+    name: "commit"
+    description: "Commit OmaSwitch after the compositor observes Super released"
+    onPressed: root.commitCycle()
   }
 
   // Keep the list fresh while open (windows open/close/rename).
@@ -256,7 +312,7 @@ Item {
           spacing: root.listGap
 
           Text {
-            text: root.filterText === "" ? "Switch window…" : "Filter: " + root.filterText
+            text: root.filterText === "" ? "Switch window · " + root.groupCount + (root.groupCount === 1 ? " app" : " apps") : "Filter: " + root.filterText
             color: root.foreground
             font.family: root.fontFamily
             font.pixelSize: Style.font.title
@@ -284,19 +340,68 @@ Item {
             }
 
             delegate: Item {
+              id: windowRow
               required property var modelData
               required property int index
+              readonly property var groupHeader: root.groupHeaders[index] || null
+              readonly property int headingHeight: groupHeader ? root.groupHeaderHeight : 0
               width: listView.width
-              height: root.rowHeight
+              height: root.rowHeight + headingHeight
+
+              Image {
+                id: groupIcon
+                visible: windowRow.groupHeader !== null
+                x: Style.space(10)
+                y: (windowRow.headingHeight - height) / 2
+                width: Style.space(20)
+                height: width
+                source: root.groupIconSource(windowRow.groupHeader)
+                sourceSize.width: width * Screen.devicePixelRatio
+                sourceSize.height: height * Screen.devicePixelRatio
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+              }
+
+              Text {
+                visible: windowRow.groupHeader !== null && groupIcon.status !== Image.Ready
+                x: groupIcon.x
+                y: groupIcon.y
+                width: groupIcon.width
+                height: groupIcon.height
+                text: "▣"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.space(18)
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+              }
+
+              Text {
+                visible: windowRow.groupHeader !== null
+                x: groupIcon.x + groupIcon.width + Style.space(8)
+                width: parent.width - x - Style.space(10)
+                height: windowRow.headingHeight
+                verticalAlignment: Text.AlignVCenter
+                text: root.groupTitle(windowRow.groupHeader)
+                textFormat: Text.PlainText
+                color: root.foreground
+                opacity: 0.7
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+                elide: Text.ElideRight
+              }
 
               Rectangle {
-                anchors.fill: parent
+                y: windowRow.headingHeight
+                width: parent.width
+                height: root.rowHeight
                 radius: root.cornerRadius
                 color: index === root.selectedIndex ? root.selectedBackground : "transparent"
               }
 
               Column {
-                anchors.verticalCenter: parent.verticalCenter
+                y: windowRow.headingHeight + (root.rowHeight - height) / 2
                 anchors.left: parent.left
                 anchors.leftMargin: Style.space(10)
                 width: parent.width - Style.space(20)
@@ -324,7 +429,9 @@ Item {
               }
 
               MouseArea {
-                anchors.fill: parent
+                y: windowRow.headingHeight
+                width: parent.width
+                height: root.rowHeight
                 onClicked: { root.selectedIndex = index; root.focusSelected() }
               }
             }
@@ -380,7 +487,7 @@ Item {
           event.accepted = true
         } else if (root.isGraveCycleKey(event)) {
           root.cycleMode = true
-          root.select(root.graveCycleDirection(event))
+          root.selectWithinApp(root.graveCycleDirection(event))
           event.accepted = true
         } else if (root.filterText && event.key === Qt.Key_Backspace &&
                    !(event.modifiers & Qt.AltModifier)) {

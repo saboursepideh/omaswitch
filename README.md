@@ -9,6 +9,8 @@ OmaSwitch puts your recently used windows in one fast, keyboard-first overlay. C
 ## Why you will like it
 
 - **Recent windows first.** Uses Hyprland focus history, so the window you want is usually next.
+- **Grouped by app.** Each app has a heading, icon, and matching-window count. Groups and their windows follow recent-use order; quick switching still selects the previous window globally.
+- **Cycle within an app.** Backtick/Shift+backtick wrap within the highlighted app without leaving the full list. Super+backtick can open only the current app's windows.
 - **Preview before switching.** A live preview follows the selected row instead of showing stale screenshots.
 - **Made for the keyboard.** Repeat `Alt+Tab`, search by typing, use arrows or Tab, then press Enter.
 - **Stays light.** Only the highlighted window gets a capture stream—never every row.
@@ -31,7 +33,7 @@ The preview changes with the selected row, making similarly named windows easy t
 ## Add it to Omarchy
 
 ```bash
-omarchy plugin add https://github.com/piyush97/omaswitch.git --enable
+omarchy plugin add https://github.com/saboursepideh/omaswitch.git --enable
 ```
 
 It installs in your user configuration and needs no extra package, service, or configuration file.
@@ -67,7 +69,7 @@ hyprctl configerrors
 | `Alt+Shift+Tab` | Open the switcher and move backward |
 | `Tab`, `Down`, `Right` | Select the next window |
 | `Shift+Tab`, `Up`, `Left` | Select the previous window |
-| `` ` `` / `~` | Select the next / previous window (never entered in the filter) |
+| `` ` `` / `~` | Select the next / previous visible window of the highlighted app, wrapping within its group (never entered in the filter) |
 | Type | Filter by title, application, or workspace |
 | `Backspace` / `Ctrl+Backspace` | Delete a character / word from the search |
 | `Ctrl+U` | Clear the search |
@@ -87,6 +89,10 @@ already-loaded overlay without starting `omarchy-shell` and `qs` on every
 keypress:
 
 ```lua
+hl.unbind("SUPER + TAB")
+hl.unbind("SUPER + SHIFT + TAB")
+hl.unbind("SUPER + GRAVE")
+hl.unbind("SUPER + SHIFT + GRAVE")
 o.bind("SUPER + TAB", "OmaSwitch", hl.dsp.global("omaswitch:next"))
 o.bind("SUPER + SHIFT + TAB", "OmaSwitch (reverse)", hl.dsp.global("omaswitch:previous"))
 o.bind("SUPER + GRAVE", "OmaSwitch current app", hl.dsp.global("omaswitch:current-next"))
@@ -96,6 +102,36 @@ o.bind("SUPER + SHIFT + GRAVE", "OmaSwitch current app (reverse)", hl.dsp.global
 The native targets handle the initial keypress only. Once the overlay has
 exclusive keyboard focus, its QML key handler handles continued cycling and
 modifier release.
+
+### Recommended: reliable quick Super release
+
+Very quick gestures can release Super before the overlay receives keyboard
+focus. Use the included native Hyprland helper **instead of** the four direct
+bindings above to catch this race:
+
+```lua
+local omaswitch_cycle = dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/piyush.omaswitch/hypr/omaswitch-cycle.lua")
+hl.unbind("SUPER + TAB")
+hl.unbind("SUPER + SHIFT + TAB")
+hl.unbind("SUPER + GRAVE")
+hl.unbind("SUPER + SHIFT + GRAVE")
+o.bind("SUPER + TAB", "OmaSwitch", omaswitch_cycle("next"))
+o.bind("SUPER + SHIFT + TAB", "OmaSwitch (reverse)", omaswitch_cycle("previous"))
+o.bind("SUPER + GRAVE", "OmaSwitch current app", omaswitch_cycle("current-next"))
+o.bind("SUPER + SHIFT + GRAVE", "OmaSwitch current app (reverse)", omaswitch_cycle("current-previous"))
+```
+
+This requires Hyprland's Lua `hl.timer()` and `hl.is_key_down()` APIs. A 16 ms
+timer runs only during a gesture and sends `omaswitch:commit` when both Super
+keys are up. Releasing Tab/backtick alone does not commit. It uses no shell
+processes, release bindings, or privileged input access; shortcut inhibition
+cannot conceal the compositor's key state. This helper is for **Super**
+bindings, not Alt bindings.
+
+The current app is captured before the overlay takes focus, so focus loss
+cannot change the app filter. In the full list, backtick cycles the highlighted
+app while Tab/arrows retain full-list navigation. Search groups only matching
+windows and refreshes preserve the selected window when it still exists.
 
 To cycle only windows belonging to the currently focused application:
 
@@ -117,6 +153,13 @@ omarchy plugin remove piyush.omaswitch --yes
 ```
 
 ## Troubleshooting
+
+**Updated shortcuts or UI changes do not appear**
+
+Some shell versions retain cached plugin components after a reported hot
+reload. Run `omarchy restart shell`, then check `hyprctl globalshortcuts` for
+`omaswitch:commit`. After changing Hyprland bindings, also run `hyprctl reload`
+and `hyprctl configerrors`.
 
 **The plugin is not listed**
 
@@ -149,6 +192,7 @@ journalctl --user -f | grep -Ei 'piyush.omaswitch|Switcher.qml|qml.*(error|warni
 
 ```bash
 node test_model.js
+lua test_release_guard.lua
 omarchy plugin validate .
 git diff --check
 ```

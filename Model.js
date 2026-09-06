@@ -69,7 +69,50 @@ function filteredWindows(values, query) {
 }
 
 function sameAppWindows(values, reference) {
-  var id = appId(reference).toLowerCase()
+  return windowsForApp(values, appId(reference))
+}
+
+// Cycle only among visible windows of the highlighted app, without changing
+// the list's scope or filter. A singleton/unknown app keeps its selection.
+function nextAppIndex(values, selectedIndex, delta) {
+  if (selectedIndex < 0 || selectedIndex >= values.length) return selectedIndex
+  var id = appId(values[selectedIndex]).toLowerCase()
+  if (!id) return selectedIndex
+  var direction = delta < 0 ? -1 : 1
+  for (var offset = 1; offset < values.length; offset++) {
+    var index = (selectedIndex + direction * offset + values.length) % values.length
+    if (appId(values[index]).toLowerCase() === id) return index
+  }
+  return selectedIndex
+}
+
+// Input is already in MRU order. Order groups by their first (most recent)
+// window and preserve MRU order within each group. Never merge unidentified
+// windows into one fictitious application.
+function groupedRows(values) {
+  var groups = []
+  values.forEach(function(window) {
+    var id = appId(window)
+    var key = id.toLowerCase()
+    var group = key ? groups.find(function(candidate) { return candidate.key === key }) : null
+    if (!group) {
+      group = { key: key, appId: id, windows: [] }
+      groups.push(group)
+    }
+    group.windows.push(window)
+  })
+  var windows = [], headers = []
+  groups.forEach(function(group) {
+    group.windows.forEach(function(window, index) {
+      windows.push(window)
+      headers.push(index === 0 ? { appId: group.appId, count: group.windows.length } : null)
+    })
+  })
+  return { windows: windows, headers: headers, groupCount: groups.length }
+}
+
+function windowsForApp(values, applicationId) {
+  var id = String(applicationId || "").toLowerCase()
   if (!id) return []
   return values.filter(function(window) {
     return appId(window).toLowerCase() === id
@@ -99,5 +142,8 @@ if (typeof module !== "undefined") module.exports = {
   sortedWindows: sortedWindows,
   filteredWindows: filteredWindows,
   sameAppWindows: sameAppWindows,
+  nextAppIndex: nextAppIndex,
+  groupedRows: groupedRows,
+  windowsForApp: windowsForApp,
   focusCommand: focusCommand
 }

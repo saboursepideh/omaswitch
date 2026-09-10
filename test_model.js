@@ -109,3 +109,22 @@ assert.equal(Model.nextAppIndex(appCycleRows, 99, 1), 99)
 assert.equal(Model.nextAppIndex([codeOther], 0, -1), 0, "filtered singleton stays selected")
 assert.deepEqual(appCycleRows, [codeCurrent, codeOther, staleBrowser, previous, active], "cycling does not reorder or filter the list")
 console.log("Within-app cycling checks passed")
+
+// Separate quick gestures toggle their last source/target pair, while the UI
+// remains free to perform ordinary list navigation during one held gesture.
+const windowA = { title: "A", address: "0xaaa", wayland: { appId: "code" } }
+const windowB = { title: "B", address: "bbb", wayland: { appId: "code" } }
+const windowC = { title: "C", address: "0xccc", wayland: { appId: "code" } }
+const pair = { first: Model.windowKey(windowA), second: Model.windowKey(windowB) }
+assert.equal(Model.windowKey(windowA), "aaa", "window keys normalize the 0x prefix")
+assert.equal(Model.windowKey(windowB), "bbb")
+assert.equal(Model.pairedCycleTarget([windowB, windowA, windowC], windowB, pair), windowA,
+  "the next separate gesture returns to the old window")
+assert.equal(Model.pairedCycleTarget([windowA, windowB, windowC], windowA, pair), windowB,
+  "subsequent gestures keep alternating the same pair")
+assert.equal(Model.pairedCycleTarget([windowC, windowB], windowC, pair), null,
+  "manual focus outside the pair falls back to normal MRU selection")
+assert.equal(Model.pairedCycleTarget([windowB, windowC], windowB, pair), null,
+  "a closed pair endpoint falls back to normal MRU selection")
+assert.equal(Model.pairedCycleTarget([windowA], windowA, null), null)
+console.log("Separate-gesture toggle checks passed")

@@ -9,6 +9,7 @@ OmaSwitch puts your recently used windows in one fast, keyboard-first overlay. C
 ## Why you will like it
 
 - **Recent windows first.** Uses Hyprland focus history, so the window you want is usually next.
+- **Quick taps toggle.** Release the modifier and press again to return to the window you just left; keep holding it and repeat the key to cycle through the rest.
 - **Grouped by app.** Each app has a heading, icon, and matching-window count. Groups and their windows follow recent-use order; quick switching still selects the previous window globally.
 - **Cycle within an app.** Backtick/Shift+backtick wrap within the highlighted app without leaving the full list. Super+backtick can open only the current app's windows.
 - **Preview before switching.** A live preview follows the selected row instead of showing stale screenshots.
@@ -77,6 +78,11 @@ hyprctl configerrors
 | `Ctrl+U` | Clear the search |
 | `Enter` or click | Focus the selected window |
 | `Esc` or click outside | Close without switching |
+
+Separate quick gestures alternate the last source/target pair, matching the
+usual Windows switcher behavior. This applies both to the global switcher and
+to current-application cycling. To reach a third window, keep the modifier
+held and press Tab or backtick again before releasing it.
 
 To open the searchable picker directly:
 

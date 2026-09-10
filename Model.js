@@ -86,6 +86,28 @@ function nextAppIndex(values, selectedIndex, delta) {
   return selectedIndex
 }
 
+function windowKey(window) {
+  if (!window || window.address === null || window.address === undefined || window.address === "") return ""
+  var value = String(window.address).toLowerCase()
+  return value.indexOf("0x") === 0 ? value.slice(2) : value
+}
+
+// A completed quick-switch gesture records its source and target. On the next
+// separate gesture, choose the other endpoint when both windows still exist.
+// Repeated keypresses in one open session do not use this helper, so holding
+// the modifier can still walk through every window.
+function pairedCycleTarget(values, current, pair) {
+  var currentKey = windowKey(current)
+  if (!currentKey || !pair) return null
+  var targetKey = currentKey === pair.first ? pair.second :
+    (currentKey === pair.second ? pair.first : "")
+  if (!targetKey) return null
+  for (var i = 0; i < values.length; i++) {
+    if (windowKey(values[i]) === targetKey) return values[i]
+  }
+  return null
+}
+
 // Input is already in MRU order. Order groups by their first (most recent)
 // window and preserve MRU order within each group. Never merge unidentified
 // windows into one fictitious application.
@@ -143,6 +165,8 @@ if (typeof module !== "undefined") module.exports = {
   filteredWindows: filteredWindows,
   sameAppWindows: sameAppWindows,
   nextAppIndex: nextAppIndex,
+  windowKey: windowKey,
+  pairedCycleTarget: pairedCycleTarget,
   groupedRows: groupedRows,
   windowsForApp: windowsForApp,
   focusCommand: focusCommand

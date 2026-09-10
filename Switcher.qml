@@ -35,6 +35,9 @@ Item {
   property string scopeAppId: ""
   property int selectedIndex: 0
   property bool previewReady: false
+  property var cycleSource: null
+  property string cyclePairKey: ""
+  property var cyclePairs: ({})
 
   // Raw toplevels (live objects from the Hyprland singleton) + filtered rows.
   property var allWindows: []
@@ -135,6 +138,12 @@ Item {
   function focusSelected() {
     var window = rows[selectedIndex]
     if (!window) return root.dismiss()
+    if (root.cycleMode && root.cycleSource && root.cyclePairKey) {
+      var first = Model.windowKey(root.cycleSource)
+      var second = Model.windowKey(window)
+      if (first && second && first !== second)
+        root.cyclePairs[root.cyclePairKey] = { first: first, second: second }
+    }
     var command = Model.focusCommand(window)
     if (command) {
       Quickshell.execDetached(["sh", "-c", command])
@@ -182,13 +191,20 @@ Item {
     root.appScope = payload.scope === "current-app" ? "current-app" : ""
     root.selectedIndex = 0
     root.previewReady = false
+    root.cycleSource = current
+    root.cyclePairKey = root.appScope === "current-app"
+      ? "current-app:" + root.scopeAppId.toLowerCase()
+      : "global"
     root.refresh()
-    // Keep quick-switch MRU behavior: the previous window may belong to a
-    // different group. Subsequent navigation follows the grouped visual order.
+    // A fresh tap toggles the pair selected by the previous completed gesture.
+    // Holding the modifier and pressing again follows the open-session branch
+    // above, which still cycles through the full list.
     var cycleWindows = root.appScope === "current-app" ? root.rows : root.allWindows
     var currentIndex = cycleWindows.indexOf(current)
     if (root.cycleMode && cycleWindows.length > 1 && currentIndex >= 0) {
-      var nextWindow = cycleWindows[(currentIndex + direction + cycleWindows.length) % cycleWindows.length]
+      var nextWindow = Model.pairedCycleTarget(
+        cycleWindows, current, root.cyclePairs[root.cyclePairKey]) ||
+        cycleWindows[(currentIndex + direction + cycleWindows.length) % cycleWindows.length]
       root.selectedIndex = root.rows.indexOf(nextWindow)
     }
     root.opened = true
@@ -201,6 +217,8 @@ Item {
     root.appScope = ""
     root.scopeAppId = ""
     root.previewReady = false
+    root.cycleSource = null
+    root.cyclePairKey = ""
   }
 
   // User-initiated dismissal also drops the host's openPanelIds entry.
@@ -210,6 +228,8 @@ Item {
     root.appScope = ""
     root.scopeAppId = ""
     root.previewReady = false
+    root.cycleSource = null
+    root.cyclePairKey = ""
     if (root.shell && typeof root.shell.hide === "function")
       root.shell.hide((root.manifest && root.manifest.id) || "piyush.omaswitch")
   }

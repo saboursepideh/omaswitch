@@ -141,7 +141,7 @@ function windowsForApp(values, applicationId) {
   })
 }
 
-// Build the shell command that focuses a window AND moves to its workspace.
+// Focus a window, move to its workspace, then raise it above floating peers.
 // Native toplevel activate does not always switch the visible workspace, so
 // the switch is requested explicitly: prefer Omarchy's Lua dispatcher form
 // (hl.dsp.focus), fall back to the plain focuswindow syntax for stock
@@ -152,8 +152,10 @@ function focusCommand(window) {
   if (raw === null || raw === undefined || raw === "") return null
   var rawAddress = String(raw)
   var address = rawAddress.indexOf("0x") === 0 ? rawAddress : "0x" + rawAddress
-  return "hyprctl dispatch \"hl.dsp.focus({ window = 'address:" + address +
-    "' })\" >/dev/null 2>&1 || hyprctl dispatch focuswindow \"address:" + address + "\""
+  return "(hyprctl dispatch \"hl.dsp.focus({ window = 'address:" + address +
+    "' })\" >/dev/null 2>&1 || hyprctl dispatch focuswindow \"address:" + address +
+    "\") && (hyprctl dispatch \"hl.dsp.window.bring_to_top()\" >/dev/null 2>&1" +
+    " || hyprctl dispatch bringactivetotop)"
 }
 
 if (typeof module !== "undefined") module.exports = {

@@ -23,17 +23,48 @@ assert.equal(Model.detail({ wayland: { appId: "x".repeat(161) } }), "x".repeat(1
 // workspace-switching command.
 const target = { title: "Browser", address: "55ea685ceda0", workspace: { id: 5 } }
 const targetHex = { title: "Browser", address: "0x55ea685ceda0", workspace: { id: 5 } }
-const expected = "hyprctl dispatch \"hl.dsp.focus({ window = 'address:0x55ea685ceda0' })\" >/dev/null 2>&1 || hyprctl dispatch focuswindow \"address:0x55ea685ceda0\""
+const expected = "(hyprctl dispatch \"hl.dsp.focus({ window = 'address:0x55ea685ceda0' })\" >/dev/null 2>&1 || hyprctl dispatch focuswindow \"address:0x55ea685ceda0\") && (hyprctl dispatch \"hl.dsp.window.bring_to_top()\" >/dev/null 2>&1 || hyprctl dispatch bringactivetotop)"
 
 assert.ok(Model.focusCommand(target), "window with address must produce a dispatch command")
 assert.equal(Model.focusCommand(target), expected, "address must be normalized with 0x prefix")
 assert.equal(Model.focusCommand(targetHex), expected, "existing 0x prefix must be preserved")
-assert.ok(Model.focusCommand(target).startsWith("hyprctl dispatch \"hl.dsp.focus("),
+assert.ok(Model.focusCommand(target).startsWith("(hyprctl dispatch \"hl.dsp.focus("),
   "primary dispatch must be the workspace-switching hl.dsp.focus form")
 assert.ok(Model.focusCommand(target).includes("|| hyprctl dispatch focuswindow \"address:0x55ea685ceda0\""),
   "plain focuswindow must remain as the stock-Hyprland fallback")
+assert.ok(Model.focusCommand(target).includes(") && (hyprctl dispatch \"hl.dsp.window.bring_to_top()\""),
+  "raise must follow successful focus through either dispatcher")
+assert.ok(Model.focusCommand(target).endsWith("|| hyprctl dispatch bringactivetotop)"),
+  "raise must retain the stock-Hyprland fallback")
 assert.equal(Model.focusCommand({}), null, "no address defers to native activate fallback")
 assert.equal(Model.focusCommand(null), null, "no window defers to native activate fallback")
+
+const { spawnSync } = require("node:child_process")
+function dispatchTrace(focusStatus, fallbackStatus, raiseStatus) {
+  const result = spawnSync("sh", ["-c", `
+    hyprctl() {
+      printf '%s\\n' "$2" >&3
+      case "$2" in
+        hl.dsp.focus*) return ${focusStatus} ;;
+        focuswindow) return ${fallbackStatus} ;;
+        hl.dsp.window.bring_to_top*) return ${raiseStatus} ;;
+        bringactivetotop) return 0 ;;
+      esac
+      return 1
+    }
+    ${Model.focusCommand(target)}
+  `], { stdio: ["ignore", "pipe", "pipe", "pipe"], encoding: "utf8" })
+  assert.ifError(result.error)
+  return { status: result.status, calls: result.output[3].trim().split("\n") }
+}
+const focusDispatch = "hl.dsp.focus({ window = 'address:0x55ea685ceda0' })"
+const raiseDispatch = "hl.dsp.window.bring_to_top()"
+assert.deepEqual(dispatchTrace(0, 0, 0), { status: 0, calls: [focusDispatch, raiseDispatch] })
+assert.deepEqual(dispatchTrace(1, 0, 0), { status: 0, calls: [focusDispatch, "focuswindow", raiseDispatch] })
+assert.deepEqual(dispatchTrace(0, 0, 1), { status: 0, calls: [focusDispatch, raiseDispatch, "bringactivetotop"] })
+assert.deepEqual(dispatchTrace(1, 0, 1), { status: 0, calls: [focusDispatch, "focuswindow", raiseDispatch, "bringactivetotop"] })
+assert.deepEqual(dispatchTrace(1, 1, 0), { status: 1, calls: [focusDispatch, "focuswindow"] },
+  "failed focus must not raise an unrelated active window")
 console.log("Model checks passed")
 
 // --- MRU ordering: unranked windows (no meaningful focusHistoryID) ---

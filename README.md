@@ -76,7 +76,7 @@ hyprctl configerrors
 | Type | Filter by title, application, or workspace |
 | `Backspace` / `Ctrl+Backspace` | Delete a character / word from the search |
 | `Ctrl+U` | Clear the search |
-| `Enter` or click | Focus the selected window |
+| `Enter` or click | Focus and raise the selected window |
 | `Esc` or click outside | Close without switching |
 
 Separate quick gestures alternate the last source/target pair, matching the

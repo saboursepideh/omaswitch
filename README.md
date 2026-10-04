@@ -136,6 +136,11 @@ processes, release bindings, or privileged input access; shortcut inhibition
 cannot conceal the compositor's key state. This helper is for **Super**
 bindings, not Alt bindings.
 
+The adapter uses `hypr/global-shortcut-cycle.lua`, a namespace-aware release
+guard. Other native switchers can use the same factory with their own shortcut
+namespace without sending their commit events to OmaSwitch. The adapter's
+existing `omaswitch_cycle(shortcut, key)` interface is unchanged.
+
 The current app is captured before the overlay takes focus, so focus loss
 cannot change the app filter. In the full list, backtick cycles the highlighted
 app while Tab/arrows retain full-list navigation. Search groups only matching

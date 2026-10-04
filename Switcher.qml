@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.Commons
@@ -25,6 +26,19 @@ Item {
 
   property var shell: null
   property var manifest: null
+  property bool maximizeAware: false
+
+  Process {
+    command: ["hyprctl", "version", "-j"]
+    running: true
+    stdout: StdioCollector {
+      onStreamFinished: root.maximizeAware = Model.supportsMaximizedReveal(JSON.parse(text).version)
+    }
+    onExited: function(exitCode, exitStatus) {
+      if (exitCode !== 0 || exitStatus !== 0)
+        console.warn("OmaSwitch: failed to detect Hyprland maximize-aware focus support")
+    }
+  }
 
   // The plugin host hides us by calling close() after removing us from
   // openPanelIds; we must not fight it, so `opened` is only our UI state.
@@ -144,13 +158,16 @@ Item {
       if (first && second && first !== second)
         root.cyclePairs[root.cyclePairKey] = { first: first, second: second }
     }
-    var command = Model.focusCommand(window)
+    var helperPath = root.maximizeAware
+      ? decodeURIComponent(String(Qt.resolvedUrl("hypr/focus-and-raise.lua")).replace(/^file:\/\//, ""))
+      : null
+    var command = Model.focusCommand(window, helperPath)
+    root.dismiss()
     if (command) {
       Quickshell.execDetached(["sh", "-c", command])
     } else if (window.wayland && typeof window.wayland.activate === "function") {
       window.wayland.activate()
     }
-    root.dismiss()
   }
 
   function select(delta) {

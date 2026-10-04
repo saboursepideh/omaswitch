@@ -84,6 +84,12 @@ usual Windows switcher behavior. This applies both to the global switcher and
 to current-application cycling. To reach a third window, keep the modifier
 held and press Tab or backtick again before releasing it.
 
+On Hyprland 0.56 or newer, selecting a maximized window keeps it maximized and
+lowers other non-pinned windows on that workspace so they cannot obscure it.
+Pinned windows and other workspaces are left alone. Selecting a normal floating
+window still raises it normally. Older Hyprland versions retain the standard
+focus-and-raise path.
+
 To open the searchable picker directly:
 
 ```bash

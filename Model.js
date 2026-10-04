@@ -141,17 +141,31 @@ function windowsForApp(values, applicationId) {
   })
 }
 
-// Focus a window, move to its workspace, then raise it above floating peers.
-// Native toplevel activate does not always switch the visible workspace, so
-// the switch is requested explicitly: prefer Omarchy's Lua dispatcher form
-// (hl.dsp.focus), fall back to the plain focuswindow syntax for stock
-// Hyprland. Returns null when the window has no address, deferring to the
-// native activate path in Switcher.qml.
-function focusCommand(window) {
+function supportsMaximizedReveal(version) {
+  var match = String(version).match(/^(\d+)\.(\d+)(?:\.|$)/)
+  if (!match) throw new Error("Cannot determine Hyprland version: " + version)
+  return Number(match[1]) > 0 || Number(match[2]) >= 56
+}
+
+function luaString(value) {
+  var equals = ""
+  while (value.indexOf("]" + equals + "]") !== -1) equals += "="
+  return "[" + equals + "[" + value + "]" + equals + "]"
+}
+
+// Use the maximize-aware helper when available; retain stock-Hyprland dispatch
+// fallbacks otherwise. A missing address defers to native toplevel activation.
+function focusCommand(window, helperPath) {
   var raw = window && window.address
   if (raw === null || raw === undefined || raw === "") return null
-  var rawAddress = String(raw)
+  var rawAddress = String(raw).toLowerCase()
+  if (!/^(0x)?[0-9a-f]+$/.test(rawAddress)) throw new Error("Invalid window address: " + raw)
   var address = rawAddress.indexOf("0x") === 0 ? rawAddress : "0x" + rawAddress
+  if (helperPath) {
+    var callback = "function() dofile(" + luaString(String(helperPath)) + ")(" +
+      luaString("address:" + address) + ") end"
+    return "hyprctl dispatch '" + callback.replace(/'/g, "'\\''") + "'"
+  }
   return "(hyprctl dispatch \"hl.dsp.focus({ window = 'address:" + address +
     "' })\" >/dev/null 2>&1 || hyprctl dispatch focuswindow \"address:" + address +
     "\") && (hyprctl dispatch \"hl.dsp.window.bring_to_top()\" >/dev/null 2>&1" +
@@ -171,5 +185,6 @@ if (typeof module !== "undefined") module.exports = {
   pairedCycleTarget: pairedCycleTarget,
   groupedRows: groupedRows,
   windowsForApp: windowsForApp,
+  supportsMaximizedReveal: supportsMaximizedReveal,
   focusCommand: focusCommand
 }

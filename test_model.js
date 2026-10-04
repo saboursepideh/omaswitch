@@ -38,6 +38,24 @@ assert.ok(Model.focusCommand(target).endsWith("|| hyprctl dispatch bringactiveto
   "raise must retain the stock-Hyprland fallback")
 assert.equal(Model.focusCommand({}), null, "no address defers to native activate fallback")
 assert.equal(Model.focusCommand(null), null, "no window defers to native activate fallback")
+assert.equal(Model.supportsMaximizedReveal("0.56.2"), true)
+assert.equal(Model.supportsMaximizedReveal("0.57.0-dev"), true)
+assert.equal(Model.supportsMaximizedReveal("1.0.0"), true)
+assert.equal(Model.supportsMaximizedReveal("0.55.3"), false)
+assert.throws(function() { Model.supportsMaximizedReveal(undefined) }, /Cannot determine/)
+assert.throws(function() { Model.focusCommand({ address: "invalid'address" }) }, /Invalid window address/)
+
+const helperPath = "/tmp/switcher's ]]/focus.lua"
+const helperCallback = "function() dofile([=[/tmp/switcher's ]]/focus.lua]=])([[address:0x55ea685ceda0]]) end"
+const helperResult = require("node:child_process").spawnSync("sh", ["-c", `
+  hyprctl() { printf '%s' "$2"; }
+  ${Model.focusCommand(target, helperPath)}
+`], { encoding: "utf8" })
+assert.ifError(helperResult.error)
+assert.equal(helperResult.status, 0)
+assert.equal(helperResult.stdout, helperCallback, "Helper path must survive Lua and shell quoting")
+assert.equal(Model.focusCommand(target, helperPath).includes("||"), false,
+  "A maximize-aware failure must not silently downgrade to ordinary focus")
 
 const { spawnSync } = require("node:child_process")
 function dispatchTrace(focusStatus, fallbackStatus, raiseStatus) {
